@@ -113,6 +113,10 @@ no arguments will produce the help menu:
                                  (default == normal make)
                  -o / --root   : ROOT tag version
                                  (default == v5-34-36)
+                 -T / --this   : Use pre-installed versions of support 
+                                 software. Can be specified multiple times, 
+                                 currently allowed options: 
+                                 [root,gsl (uses gsl-config if available)]
                  -s / --https  : Use HTTPS checkout from GitHub
                                  (default is ssh)
                  -c / --force  : Archive existing packages and rebuild
