@@ -11,11 +11,11 @@ PATCH=`echo $TAG | perl -ne '@l=split("-",$_);@m=split("_",@l[1]);print @m[2]'`
 
 USERREPO="GENIEMC"      # "USER REPO" == just User, really
 GENIEVER="GENIE"        # "VER" == repo name (really)
-GITBRANCH="R-2_12_6"    # 
+GITBRANCH="R-2_12_6"    #
 HTTPSCHECKOUT=0         # use https checkout if non-zero (otherwise ssh)
 
 PYTHIAVER=6          # must eventually be either 6 or 8
-ROOTTAG="v5-34-36"   # 
+ROOTTAG="v5-34-36"   #
 MAKE=make            # May prefer "gmake" on some systems
 MAKENICE=0           # Run make under nice if == 1
 FORCEBUILD=""        # " -f" will archive existing packages and rebuild
@@ -28,6 +28,10 @@ VERBOSESUPPORT=""    # silence is NOT assent
 
 ENVFILE="environment_setup.sh"
 
+
+USETHISROOT="no"
+USETHISGSL="no"
+
 # how to use the script
 help()
 {
@@ -35,9 +39,9 @@ help()
 
 Check the [releases](https://github.com/GENIEMC/lamp/releases) page to be sure
 you are using a version of "lamp" that is appropriate for the version of GENIE
-you want to use. This version of "lamp" expects you want to work with GENIE 
+you want to use. This version of "lamp" expects you want to work with GENIE
 $TAG. "lamp" has been tested for GENIE R-2_8_0 and later, but you need to be
-sure you check out the appropriate release for the version of GENIE that you 
+sure you check out the appropriate release for the version of GENIE that you
 would like to use. Check the "VERSIONS.md" file distributed with lamp for help.
 
 Welcome to "rub_the_lamp". This script will build the 3rd party support packages
@@ -62,6 +66,9 @@ Usage: ./rub_the_lamp.sh -<flag>
                              (default == normal make)
              -o / --root   : ROOT tag version
                              (default == $ROOTTAG)
+             -T / --this   : Use pre-installed versions of support software.
+                             Can be specified multiple times, currently allowed 
+                             options: [root,gsl (uses gsl-config if available)]
              -s / --https  : Use HTTPS checkout from GitHub
                              (default is ssh)
              -c / --force  : Archive existing packages and rebuild
@@ -77,18 +84,19 @@ Usage: ./rub_the_lamp.sh -<flag>
              --no-roomu    : build without RooMUHistos (requires Boost)
                              (default is to use RooMUHistos)
 
-  All defaults:  
+  All defaults:
     ./rub_the_lamp.sh
   Produces: $TAG from HepForge, Pythia6, ROOT $ROOTTAG
 
-  Other examples:  
+  Other examples:
     ./rub_the_lamp.sh --forge
     ./rub_the_lamp.sh -f --tag trunk
     ./rub_the_lamp.sh -g -u GENIEMC --root v5-34-24 -n
- 
+    ./rub_the_lamp.sh -g -u GENIEMC -T root -n
+
 Note: Advanced configuration of the support packages may require inspection of
 that script.
- 
+
 EOF
 }
 
@@ -117,17 +125,17 @@ commits, etc. See the VERSIONS.md file in this package for more information.
 
 * If you have created a repo with a different name or naming structure from
 those expected by lamp, you will need to update this script or rename your
-repository. This script expects repositories in HepForge to look like 
-R-X_Y_Z and in GitHub to look like GENIE, with the version set by the 
+repository. This script expects repositories in HepForge to look like
+R-X_Y_Z and in GitHub to look like GENIE, with the version set by the
 **branch name**. You may grep this script for the checklamp function to see
 how the major, minor, and patch version numbers are managed.
 EOF
 }
 
 # quiet pushd
-mypush() 
-{ 
-    pushd $1 >& /dev/null 
+mypush()
+{
+    pushd $1 >& /dev/null
     if [ $? -ne 0 ]; then
         echo "Error! Directory $1 does not exist."
         exit 1
@@ -135,9 +143,9 @@ mypush()
 }
 
 # quiet popd
-mypop() 
-{ 
-    popd >& /dev/null 
+mypop()
+{
+    popd >& /dev/null
 }
 
 # uniformly printed "subject" breaks
@@ -234,6 +242,18 @@ do
             ;;
         -o|--root)
             ROOTTAG="$1"
+            USETHISROOT="no"
+            shift
+            ;;
+        -T|--this)
+            if [[ $1 == "root" ]]; then
+                USETHISROOT="yes"
+            elif [[ $1 == "gsl" ]]; then
+                USETHISGSL="yes"
+            else
+                echo "Error. Unexpected option passed to -T. Should be one of [root,...]"
+                exit 1
+            fi
             shift
             ;;
         -s|--https)
@@ -286,7 +306,7 @@ echo "  Starting the build at $BUILDSTARTTIME"
 #
 # Calculate Major_Minor_Patch from Repository and Name/Tag combos
 #  GitHub: R-2_10_2+: GENIE, with Major_Minor_Patch in **branch name**
-#  GitHub: R-2_8 -> R-2_10_0: GENIE_X_Y_Z except 2_8, which is before our support window anyway. 
+#  GitHub: R-2_8 -> R-2_10_0: GENIE_X_Y_Z except 2_8, which is before our support window anyway.
 #      Check out an older tag of lamp for pre R-2_10_2
 #  HepForge: R-X_Y_Z
 #
@@ -315,12 +335,12 @@ checklamp
 
 #
 # Check that the Pythia version requested is okay
-# 
+#
 if [ $PYTHIAVER -ne 6 -a $PYTHIAVER -ne 8 ]; then
     badpythia
 fi
 
-# 
+#
 # Show the selected options.
 #
 mybr
@@ -358,16 +378,23 @@ echo " Support Tag    = $SUPPORTTAG"
 echo " Pythia version = $PYTHIAVER"
 echo " Make           = $MAKE"
 echo " Make Nice      = $MAKENICE"
-echo " ROOT tag       = $ROOTTAG"
+if [[ $USETHISROOT == "no" ]]; then
+    echo " ROOT tag       = $ROOTTAG"
+else
+    echo " Using pre-installed ROOT: \"${ROOTSYS}\""
+fi
+if [[ $USETHISGSL == "yes" ]]; then
+    echo " Using pre-installed GSL: \"$(gsl-config --prefix)\""
+fi
 if [[ $FORCEBUILD == "" ]]; then
     echo " Force build    = NO"
 else
     echo " Force build    = YES"
 fi
 
-# 
+#
 # Pause here to verify selection?
-# 
+#
 echo ""
 echo "Press ctrl-c to stop. Otherwise starting the build in..."
 for i in {5..1}
@@ -381,7 +408,7 @@ done
 # we still get the support package build script from GitHub.
 #
 GITCHECKOUT="http://github.com/"
-if [ $HTTPSCHECKOUT -ne 0 ]; then 
+if [ $HTTPSCHECKOUT -ne 0 ]; then
     GITCHECKOUT="https://github.com/"
 else
     GITCHECKOUT="git@github.com:"
@@ -389,13 +416,13 @@ fi
 
 #
 # Check out the GENIE code.
-# 
+#
 GENIEDIRNAME=""
 if [[ $CHECKOUT == "GITHUB" ]]; then
     GENIEDIRNAME=$GENIEVER
     if [ ! -d $GENIEDIRNAME ]; then
         git clone ${GITCHECKOUT}${USERREPO}/${GENIEVER}.git
-        mypush $GENIEVER  
+        mypush $GENIEVER
         git checkout $GITBRANCH
         mypop
     else
@@ -407,14 +434,14 @@ elif [[ $CHECKOUT == "HEPFORGE" ]]; then
     echo "Checking out $TAG..."
     if [ ! -d $GENIEDIRNAME ]; then
         if [[ $TAG != "trunk" ]]; then
-            if [[ $SVNAUTHNAM == "anon" ]]; then 
-                svn co --quiet http://genie.hepforge.org/svn/generator/branches/$TAG $GENIEDIRNAME 
+            if [[ $SVNAUTHNAM == "anon" ]]; then
+                svn co --quiet http://genie.hepforge.org/svn/generator/branches/$TAG $GENIEDIRNAME
             else
                 svn co --quiet svn+ssh://${SVNAUTHNAM}@svn.hepforge.org/hepforge/svn/genie/generator/branches/$TAG $GENIEDIRNAME
             fi
         else
-            if [[ $SVNAUTHNAM == "anon" ]]; then 
-                svn co --quiet http://genie.hepforge.org/svn/generator/trunk $GENIEDIRNAME 
+            if [[ $SVNAUTHNAM == "anon" ]]; then
+                svn co --quiet http://genie.hepforge.org/svn/generator/trunk $GENIEDIRNAME
             else
                 svn co --quiet svn+ssh://${SVNAUTHNAM}@svn.hepforge.org/hepforge/svn/genie/generator/trunk $GENIEDIRNAME
             fi
@@ -445,7 +472,7 @@ if echo `uname -a` | grep "x86_64"; then
 fi
 
 HTTPSFLAG=""
-if [ $HTTPSCHECKOUT -ne 0 ]; then 
+if [ $HTTPSCHECKOUT -ne 0 ]; then
     HTTPSFLAG="-s"
 fi
 
@@ -461,6 +488,53 @@ DEBUGFLAG=""
 if [ "$DEBUG" == "yes" ]; then
     DEBUGFLAG="--debug"
 fi
+
+if [[ $USETHISROOT == "yes" ]]; then
+    echo "Switching off ROOT (and pythia) build, will use currently set up ROOT."
+
+    if [ ! -e $ROOTSYS/bin/thisroot.sh ]; then
+        echo "Error. Recieved -T root options but ROOTSYS=\"${ROOTSYS}\", does not seem to point to a built version of ROOT."
+        echo "Please set up ROOT before running this script."
+        exit 1
+    fi
+
+    if ! root-config --features | grep "pythia6" --silent; then
+        echo "Error. Pre-installed ROOT does not have pythia6 support."
+        echo "Recommend using GENIESupport ROOT (do not pass -T root to this script.)"
+        exit 1
+    fi
+
+    if ! root-config --features | grep "mathmore" --silent; then
+        echo "Error. Pre-installed ROOT does not have mathmore support."
+        echo "Recommend using GENIESupport ROOT (do not pass -T root to this script.)"
+        exit 1
+    fi
+
+    echo "cat build_support.sh_orig | sed \"s/BUILD_ROOT=\"yes\"/BUILD_ROOT=\"no\"/g\" | sed \"s/USE_CMAKE_FOR_ROOT=\"yes\"/USE_CMAKE_FOR_ROOT=\"no\"/g\" | sed \"s/BUILD_PYTHIA=\"yes\"/BUILD_PYTHIA=\"no\"/g\" > build_support.sh"
+    mv build_support.sh build_support.sh_orig
+    cat build_support.sh_orig | sed "s/BUILD_ROOT=\"yes\"/BUILD_ROOT=\"no\"/g" | sed "s/USE_CMAKE_FOR_ROOT=\"yes\"/USE_CMAKE_FOR_ROOT=\"no\"/g" | sed "s/BUILD_PYTHIA=\"yes\"/BUILD_PYTHIA=\"no\"/g" > build_support.sh
+    chmod +x build_support.sh
+fi
+
+if [[ $USETHISGSL == "yes" ]]; then
+
+    if ! hash gsl-config; then
+        echo "Could not find gsl-config, do you have a gsl-built?"
+        exit 1
+    fi
+
+    if [ ! -e $(gsl-config --prefix)/lib/libgsl.a ]; then
+        echo "Found gsl-config, but lib doesn't seem to exist where expected: \"$(gsl-config --prefix)/lib/libgsl.a\""
+        exit 1
+    fi
+
+    echo "cat build_support.sh_orig | sed \"s/BUILD_GSL=\"yes\"/BUILD_GSL=\"no\"/g\" > build_support.sh"
+    mv build_support.sh build_support.sh_orig
+    cat build_support.sh_orig | sed "s/BUILD_GSL=\"yes\"/BUILD_GSL=\"no\"/g" > build_support.sh
+    chmod +x build_support.sh
+
+fi
+
 echo "Running: ./build_support.sh -p $PYTHIAVER -r $ROOTTAG $NICE $FORCEBUILD $ROOMUHISTOSFLAG $VERBOSESUPPORT $HTTPSFLAG $DEBUGFLAG"
 ./build_support.sh -p $PYTHIAVER -r $ROOTTAG $NICE $FORCEBUILD $HTTPSFLAG $ROOMUHISTOSFLAG $VERBOSESUPPORT $DEBUGFLAG
 if [[ $? == 0 ]]; then
@@ -483,7 +557,7 @@ if [ "$IS64" == "yes" ]; then
     fi
 fi
 
-# 
+#
 # Set up the environment for the GENIE build.
 #
 source $ENVFILE
@@ -493,9 +567,9 @@ echo "You will need to source $ENVFILE after the build finishes."
 #
 # For 2.9.X+, we must copy a patched PDF file into the $LHAPATH
 # TODO - check to see if this is also handled in GENIESupport
-# 
+#
 # For trunk prior to LHAPDF retirement we must copy a patched PDF file into the $LHAPATH
-# 
+#
 cp -v $GENIE/data/evgen/pdfs/GRV98lo_patched.LHgrid $LHAPATH
 
 #
@@ -563,11 +637,11 @@ mypush data
 XSECSPLINEDIR=`pwd`
 FETCHLOG=log_$BUILDSTARTTIME.datafetch
 if [[ $MAJOR == "trunk" ]]; then
-    XSECDATA="none"          
+    XSECDATA="none"
 elif [[ $MAJOR == 2 ]]; then
     if [[ $MINOR -eq 10 ]]; then
         if [[ $PATCH -ge 0 && $PATCH -le 10 ]]; then
-            XSECDATA="gxspl-small.xml.gz"          
+            XSECDATA="gxspl-small.xml.gz"
             if [ ! -f $XSECDATA ]; then
                 # Use 2.10.0 splines for patches to 2.10
                 # wget https://www.hepforge.org/archive/genie/data/${MAJOR}.${MINOR}.${PATCH}/$XSECDATA >& $FETCHLOG
@@ -579,7 +653,7 @@ elif [[ $MAJOR == 2 ]]; then
             badlamp
         fi
     elif [[ $MINOR -eq 11 ]]; then
-        XSECDATA="gxspl-small.xml.gz"          
+        XSECDATA="gxspl-small.xml.gz"
         if [ ! -f $XSECDATA ]; then
             # go ahead and use 2.10 splines for 2.11 (not a production release anyway)
             wget https://www.hepforge.org/archive/genie/data/2.10.0/$XSECDATA >& $FETCHLOG
@@ -587,7 +661,7 @@ elif [[ $MAJOR == 2 ]]; then
             echo "Cross section data $XSECDATA already exists in `pwd`..."
         fi
     elif [[ $MINOR -ge 12 ]]; then
-        XSECDATA="none"          
+        XSECDATA="none"
     else
         badlamp
     fi
@@ -609,7 +683,7 @@ else
     echo "$RUNSPKG already installed..."
 fi
 echo "Moving to the genie_runs package area to do the test run..."
-mypush $RUNSPKG 
+mypush $RUNSPKG
 if [[ $XSECDATA == "none" ]]; then
     ./do_make_spline.sh --list CCQE --knots 50 --maxenergy 20 --target 1000180400 --nus -14,14
     ./do_a_run.sh --list CCQE --target 1000180400 --numevt 5 --run 42 --energy 3 --nus 14
@@ -622,13 +696,13 @@ if [ $? -eq 0 ]; then
     echo "***********************************************************"
     echo "  NOTE: To run GENIE you MUST first source $ENVFILE "
     echo "***********************************************************"
-    if [[ $XSECDATA != "none" ]]; then 
+    if [[ $XSECDATA != "none" ]]; then
         mypush $XSECSPLINEDIR
         gunzip -f $XSECDATA
         echo " Note, unzipping $XSECDATA..."
         mypop
     fi
-else 
+else
     echo "Run failed! Please check the log file."
     exit 1
 fi
