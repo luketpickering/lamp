@@ -251,7 +251,7 @@ do
             elif [[ $1 == "gsl" ]]; then
                 USETHISGSL="yes"
             else
-                echo "Error. Unexpected option passed to -T. Should be one of [root,...]"
+                echo "Error. Unexpected option passed to -T. Should be one of [root,gsl]"
                 exit 1
             fi
             shift

@@ -140,6 +140,7 @@ no arguments will produce the help menu:
         ./rub_the_lamp.sh --forge
         ./rub_the_lamp.sh -f --tag trunk
         ./rub_the_lamp.sh -g -u GENIEMC --root v5-34-24 -n
+        ./rub_the_lamp.sh -g -u GENIEMC -T root -n
     
     Note: Advanced configuration of the support packages may require inspection of
     that script.
