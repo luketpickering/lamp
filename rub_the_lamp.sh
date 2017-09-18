@@ -601,6 +601,8 @@ echo "Fixing dumb search for libMathMore.so: cat configure_old | sed 's:$mathmor
 
 cat configure_old | sed 's:$mathmore_lib = \"$ROOTSYS/lib/libMathMore.so\":$mathmore_lib = `root-config --libdir`;\nchomp $mathmore_lib;\n$mathmore_lib = \"${mathmore_lib}/libMathMore.so\":g' >> configure
 
+chmod +x configure
+
 echo -e "./configure \\" >> $CONFIGSCRIPT
 if [ "$DEBUG" == "yes" ]; then
     echo -e "  --enable-debug \\" >> $CONFIGSCRIPT
