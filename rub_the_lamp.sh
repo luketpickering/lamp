@@ -2,7 +2,7 @@
 
 HELPFLAG=0           # show the help block (if non-zero)
 CHECKOUT="HEPFORGE"  # Alternate option is "GITHUB"
-TAG="R-2_12_6"       # SVN Branch
+TAG="R-2_12_10"       # SVN Branch
 SVNAUTHNAM="anon"    # credentialed checkout?
 # major, minor, version (extract from tag dynamically)
 MAJOR=`echo $TAG | perl -ne '@l=split("-",$_);@m=split("_",@l[1]);print @m[0]'`
@@ -11,7 +11,7 @@ PATCH=`echo $TAG | perl -ne '@l=split("-",$_);@m=split("_",@l[1]);print @m[2]'`
 
 USERREPO="GENIEMC"      # "USER REPO" == just User, really
 GENIEVER="GENIE"        # "VER" == repo name (really)
-GITBRANCH="R-2_12_6"    #
+GITBRANCH="R-2_12_10"    #
 HTTPSCHECKOUT=0         # use https checkout if non-zero (otherwise ssh)
 
 PYTHIAVER=6          # must eventually be either 6 or 8
@@ -23,7 +23,7 @@ FORCEBUILD=""        # " -f" will archive existing packages and rebuild
 DEBUG="no"
 
 ROOMUHISTOSFLAG=""   # silence is assent
-SUPPORTTAG="R-2_11_0.0"
+SUPPORTTAG="R-2_12_10.0"
 VERBOSESUPPORT=""    # silence is NOT assent
 
 ENVFILE="environment_setup.sh"
@@ -31,6 +31,7 @@ ENVFILE="environment_setup.sh"
 
 USETHISROOT="no"
 USETHISGSL="no"
+USETHISLOG4CPP="no"
 
 # how to use the script
 help()
@@ -68,7 +69,8 @@ Usage: ./rub_the_lamp.sh -<flag>
                              (default == $ROOTTAG)
              -T / --this   : Use pre-installed versions of support software.
                              Can be specified multiple times, currently allowed
-                             options: [root,gsl (uses gsl-config if available)]
+                             options: [root,gsl (uses -config if available),
+                             log4cpp]
              -s / --https  : Use HTTPS checkout from GitHub
                              (default is ssh)
              -c / --force  : Archive existing packages and rebuild
@@ -111,9 +113,9 @@ command that will switch to the version of the code matching the tag and also
 put you on a separate branch (away from master) in case you want to make
 commits, etc. See the VERSIONS.md file in this package for more information.
 
-* The latest version is 2.12.6. To use 2.12.6, you want tag "R-2_12_6.0":
+* The latest version is 2.12.10. To use 2.12.10, you want tag "R-2_12_10.0":
 
-    git checkout -b R-2_12_6.0-br R-2_12_6.0
+    git checkout -b R-2_12_10.0-br R-2_12_10.0
 
 * To use 2.10.0, you probably want tag "R-2_10_0.0":
 
@@ -250,6 +252,8 @@ do
                 USETHISROOT="yes"
             elif [[ $1 == "gsl" ]]; then
                 USETHISGSL="yes"
+            elif [[ $1 == "log4cpp" ]]; then
+                USETHISLOG4CPP="yes"
             else
                 echo "Error. Unexpected option passed to -T. Should be one of [root,gsl]"
                 exit 1
@@ -311,14 +315,18 @@ echo "  Starting the build at $BUILDSTARTTIME"
 #  HepForge: R-X_Y_Z
 #
 if [[ $CHECKOUT == "GITHUB" ]]; then
-    if [[ $GITBRANCH != "master" ]]; then
-        MAJOR=`echo $GITBRANCH | perl -ne '@l=split("-",$_);@m=split("_",@l[1]);print @m[0]'`
-        MINOR=`echo $GITBRANCH | perl -ne '@l=split("-",$_);@m=split("_",@l[1]);print @m[1]'`
-        PATCH=`echo $GITBRANCH | perl -ne '@l=split("-",$_);@m=split("_",@l[1]);print @m[2]'`
-    else
+    if [[ $GITBRANCH == "trunk" ]]; then
+        MAJOR="trunk"
+        MINOR=""
+        PATCH=""
+    elif [[ $GITBRANCH == "master" ]]; then
         MAJOR="master"
         MINOR=""
         PATCH=""
+    else
+        MAJOR=`echo $GITBRANCH | perl -ne '@l=split("-",$_);@m=split("_",@l[1]);print @m[0]'`
+        MINOR=`echo $GITBRANCH | perl -ne '@l=split("-",$_);@m=split("_",@l[1]);print @m[1]'`
+        PATCH=`echo $GITBRANCH | perl -ne '@l=split("-",$_);@m=split("_",@l[1]);print @m[2]'`
     fi
 elif [[ $CHECKOUT == "HEPFORGE" ]]; then
     if [[ $TAG != "trunk" ]]; then
@@ -384,7 +392,10 @@ else
     echo " Using pre-installed ROOT: \"${ROOTSYS}\""
 fi
 if [[ $USETHISGSL == "yes" ]]; then
-    echo " Using pre-installed GSL: \"$(gsl-config --prefix)\""
+    echo " Using pre-installed GSL: \"$(gsl-config --libs | cut -f 1 -d " " | cut -c 3-)\""
+fi
+if [[ $USETHISLOG4CPP == "yes" ]]; then
+    echo " Using pre-installed log4cpp: \"$(log4cpp-config --pkglibdir)\""
 fi
 if [[ $FORCEBUILD == "" ]]; then
     echo " Force build    = NO"
@@ -523,8 +534,9 @@ if [[ $USETHISGSL == "yes" ]]; then
         exit 1
     fi
 
-    if [ ! -e $(gsl-config --prefix)/lib/libgsl.a ]; then
-        echo "Found gsl-config, but lib doesn't seem to exist where expected: \"$(gsl-config --prefix)/lib/libgsl.a\""
+    GSLLIBDIR=$(gsl-config --libs | cut -f 1 -d " " | cut -c 3-)
+    if [ ! -e ${GSLLIBDIR}/libgsl.a ]; then
+        echo "Found gsl-config, but lib doesn't seem to exist where expected: \"${GSLLIBDIR}/libgsl.a\""
         exit 1
     fi
 
@@ -533,6 +545,21 @@ if [[ $USETHISGSL == "yes" ]]; then
     cat build_support.sh_orig | sed "s/BUILD_GSL=\"yes\"/BUILD_GSL=\"no\"/g" > build_support.sh
     chmod +x build_support.sh
 
+fi
+
+if [[ $USETHISLOG4CPP == "yes" ]]; then
+      if ! hash log4cpp-config; then
+          echo "Could not find log4cpp-config, do you have a log4cpp-built?"
+          exit 1
+      fi
+
+      echo "cat build_support.sh_orig | sed \"s/BUILD_LOG4CPP=\"yes\"/BUILD_LOG4CPP=\"no\"/g\" > build_support.sh"
+      mv build_support.sh build_support.sh_orig
+      cat build_support.sh_orig | sed "s/BUILD_LOG4CPP=\"yes\"/BUILD_LOG4CPP=\"no\"/g" > build_support.sh
+      chmod +x build_support.sh
+
+      LOG4CPP_INC=$(log4cpp-config --pkgincludedir)
+      LOG4CPP_LIB=$(log4cpp-config --pkglibdir)
 fi
 
 echo "Running: ./build_support.sh -p $PYTHIAVER -r $ROOTTAG $NICE $FORCEBUILD $ROOMUHISTOSFLAG $VERBOSESUPPORT $HTTPSFLAG $DEBUGFLAG"
@@ -582,20 +609,6 @@ echo -e "\043\041/usr/bin/env bash" > $CONFIGSCRIPT
 echo -e "echo \"Running configuration script generated by the Lamp...\"" >> $CONFIGSCRIPT
 
 mv configure configure_old
-
-  # $mathmore_lib = "$ROOTSYS/lib/libMathMore.so";
-  # if( ! -f $mathmore_lib ) {
-  #    die ("*** Error *** ROOT needs to be built with GSL/MathMore enabled.");
-  # }
-
-  # -->
-
-  # $mathmore_lib = `root-config --libdir`;
-  # chomp $mathmore_lib;
-  # $mathmore_lib = "${mathmore_lib}/libMathMore.so";
-  # if( ! -f $mathmore_lib ) {
-  #   die ("*** Error *** ROOT needs to be built with GSL/MathMore enabled (Couldn't find: ".$mathmore_lib.").");
-  # }
 
 echo "Fixing dumb search for libMathMore.so: cat configure_old | sed 's:$mathmore_lib = \"$ROOTSYS/lib/libMathMore.so\":$mathmore_lib = `root-config --libdir`;\nchomp $mathmore_lib;\n$mathmore_lib = \"${mathmore_lib}/libMathMore.so\":g'"
 
@@ -731,6 +744,19 @@ else
     echo "Run failed! Please check the log file."
     exit 1
 fi
+# Simple check of interpreter
+genie -q -b
+if [ $? -eq 0 ] ; then
+    echo "Interpreter loaded correctly."
+else
+    echo "Interpreter failed to load! Please check the log file."
+    exit 1
+fi
+
+echo "***********************************************************"
+echo "  NOTE: To run GENIE you MUST first source $ENVFILE "
+echo "***********************************************************"
+
 mypop
 echo " "
 BUILDSTOPTIME=`date +%Y-%m-%d-%H-%M-%S`
