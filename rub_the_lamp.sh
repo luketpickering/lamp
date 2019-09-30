@@ -24,7 +24,7 @@ FORCEBUILD=""        # " -f" will archive existing packages and rebuild
 DEBUG="no"
 
 ROOMUHISTOSFLAG=""   # silence is assent
-SUPPORTTAG="R-2_12_10.0"
+SUPPORTTAG="R-2_12_8.0"
 VERBOSESUPPORT=""    # silence is NOT assent
 
 ENVFILE="environment_setup.sh"
@@ -171,8 +171,8 @@ checklamp()
 {
     if [[ $MAJOR != "trunk" && $MAJOR != "master" ]]; then
         if [[ $MAJOR == 2 ]]; then
-            if [[ $MINOR -eq 10 ]]; then
-                if [[ $PATCH -ge 2 ]]; then
+            if [[ $MINOR -ge 12 ]]; then
+                if [[ $PATCH -ge 0 ]]; then
                     LAMPOKAY="YES"
                 else
                     badlamp
@@ -344,7 +344,10 @@ elif [[ $CHECKOUT == "HEPFORGE" ]]; then
         PATCH=""
     fi
 fi
-checklamp
+
+if [ "${BUILDGENIE}" != "no" ]; then
+    checklamp
+fi
 
 #
 # Check that the Pythia version requested is okay
@@ -538,12 +541,6 @@ if [[ $USETHISGSL == "yes" ]]; then
 
     if ! hash gsl-config; then
         echo "Could not find gsl-config, do you have a gsl-built?"
-        exit 1
-    fi
-
-    GSLLIBDIR=$(gsl-config --libs | cut -f 1 -d " " | cut -c 3-)
-    if [ ! -e ${GSLLIBDIR}/libgsl.a ]; then
-        echo "Found gsl-config, but lib doesn't seem to exist where expected: \"${GSLLIBDIR}/libgsl.a\""
         exit 1
     fi
 
