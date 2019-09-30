@@ -13,6 +13,7 @@ USERREPO="GENIEMC"      # "USER REPO" == just User, really
 GENIEVER="GENIE"        # "VER" == repo name (really)
 GITBRANCH="R-2_12_10"    #
 HTTPSCHECKOUT=0         # use https checkout if non-zero (otherwise ssh)
+BUILDGENIE="yes"
 
 PYTHIAVER=6          # must eventually be either 6 or 8
 ROOTTAG="v5-34-36"   #
@@ -85,6 +86,7 @@ Usage: ./rub_the_lamp.sh -<flag>
                              (default is $SUPPORTTAG)
              --no-roomu    : build without RooMUHistos (requires Boost)
                              (default is to use RooMUHistos)
+             --no-genie    : just build support
 
   All defaults:
     ./rub_the_lamp.sh
@@ -283,6 +285,9 @@ do
         --no-roomu)
             ROOMUHISTOSFLAG="--no-roomu"
             ;;
+        --no-genie)
+            BUILDGENIE="no"
+            ;;
         *)    # Unknown option
             echo "Unknown option!"
             help
@@ -428,6 +433,7 @@ fi
 #
 # Check out the GENIE code.
 #
+if [ "${BUILDGENIE}" == "yes" ]; then
 GENIEDIRNAME=""
 if [[ $CHECKOUT == "GITHUB" ]]; then
     GENIEDIRNAME=$GENIEVER
@@ -462,12 +468,13 @@ elif [[ $CHECKOUT == "HEPFORGE" ]]; then
     fi
     echo "Done with GENIE HepForge checkout."
 fi
+fi
 
 #
 # Build the support packages.
 #
 if [ ! -d GENIESupport ]; then
-    git clone ${GITCHECKOUT}GENIEMC/GENIESupport.git
+    git clone ${GITCHECKOUT}GENIE-MC-Community/GENIESupport.git
 else
     echo "GENIESupport already installed..."
 fi
@@ -602,6 +609,7 @@ cp -v $GENIE/data/evgen/pdfs/GRV98lo_patched.LHgrid $LHAPATH
 #
 # Configure and build GENIE
 #
+if [ "${BUILDGENIE}" == "yes" ]; then
 mypush $GENIEDIRNAME
 echo "Configuring GENIE build..."
 CONFIGSCRIPT="do_configure.sh"
@@ -756,6 +764,8 @@ fi
 echo "***********************************************************"
 echo "  NOTE: To run GENIE you MUST first source $ENVFILE "
 echo "***********************************************************"
+
+fi
 
 mypop
 echo " "
